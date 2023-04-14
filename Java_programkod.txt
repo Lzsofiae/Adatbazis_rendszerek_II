@@ -1,0 +1,271 @@
+package sqlite;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
+import java.util.Scanner;
+import java.io.FileWriter;
+import java.io.IOException;
+
+
+public class allatkert {
+	
+	private Connection conn;
+	
+	public static void main(String[] args)  {
+		
+					
+		
+		try(Scanner in = new Scanner(System.in)) {
+			allatkert prog = new allatkert();
+			
+			prog.connect("belepes.db");
+			
+			System.out.println("Felhasznalonev:");
+	        String felhasznalo = in.nextLine();
+	        System.out.println("Jelszo:");
+	        String jelszo = in.nextLine();
+
+	        try {
+	        	//Beleptetes
+	            prog.belepes(felhasznalo, jelszo);
+	            System.out.println("Sikeres bejelentkezes!");
+	            prog.connect("allatkert.db");
+	            
+	            int option = 0;
+	            while (option !=4 ) {
+	            	//Menu letrehozas
+	            	System.out.println("\nFo menu:");
+	            	System.out.println("1. Uj rekord felvitele ide: allatok tabla");
+	            	System.out.println("2. Uj rekord felvitele ide: gondozok tabla");
+	            	System.out.println("3. Lekerdezesek");
+	            	System.out.println("4. Kilepes");
+	            	
+	            	option = Integer.parseInt(in.nextLine());
+	            	
+	            	switch (option) {
+	            	//Uj rekord felvitele ide: allatok tabla
+	            	case 1:
+	            		System.out.println("Allat neve:");
+	            		String Nev = in.nextLine();
+	            		System.out.println("Allat elohelye:");
+	            		String Elohely = in.nextLine();
+	            		System.out.println("Allat elettartama:");
+	            		int Elettartam = Integer.parseInt(in.nextLine());
+	            		System.out.println("Allat egyedszama:");
+	            		int Egyedszam = Integer.parseInt(in.nextLine());
+	            		System.out.println("Allat elhelyezese:");
+	            		int Elhelyezes = Integer.parseInt(in.nextLine());
+	            		prog.add_new_allatok(Nev, Elohely, Elettartam, Egyedszam, Elhelyezes);
+	            		System.out.println("Uj allat rekord beillesztve!");
+	            		break;
+	            	//Uj rekord felvitele ide: gondozok	tabla
+	            	case 2:
+	            		System.out.println("Gondozo neve:");
+	            		String GNev = in.nextLine();
+	            		prog.add_new_gondozok(GNev);
+	            		System.out.println("Uj gondozo rekord beillesztve!");
+	            		break;
+	            	//Lekerdezesek	
+	            	case 3:
+	            		prog.lekerdezes_elettartam(20);
+	            		prog.lekerdezes_elohely();
+	            		prog.lekerdezes_kapcsolat();
+	            		break;
+	            	}
+	            }
+	            
+	        	} catch (SQLException e) {
+					System.out.println(e.getMessage());
+					System.exit(1);
+				} 
+	        
+		}catch (SQLException e) {
+		e.printStackTrace();
+	}
+		}
+	
+	
+	//Csatlakoztatas
+	public Connection connect(String dbFileName) throws SQLException {
+        String url = "jdbc:sqlite:C:\\sql3\\"+ dbFileName;
+        conn = DriverManager.getConnection(url);
+        //System.out.println("Sikeres csatlakozas");
+        return conn;
+    }
+
+		
+	//Beleptetes
+	public void belepes(String felhasznalo, String jelszo) throws SQLException {
+		Connection conn = this.connect("belepes.db");
+		String parancs = "SELECT * FROM user WHERE felhasznalo = ? AND jelszo = ?";
+		try (var pstmt = conn.prepareStatement(parancs)) {
+			pstmt.setString(1, felhasznalo);
+			pstmt.setString(2, jelszo);
+			ResultSet rs = pstmt.executeQuery();
+			if(!rs.next()) {
+				throw new SQLException("Helytelen felhasznalo vagy jelszo.");
+			} else {
+				String felhasznaloSzerep = rs.getString("szerep");
+                System.out.println("Udv, " + felhasznalo + "!");
+                System.out.println("A te szerepkorod: " + felhasznaloSzerep);
+                rs.close();
+			}
+		} catch (SQLException ex) {
+			throw ex;
+		}
+	}
+		
+	//Uj rekord felvitele ide: allatok tabla
+	public void add_new_allatok(String nev, String elohely, int elettartam, int egyedszam, int elhelyezes_id)
+    {
+        int allat_id = 0;
+        try
+        {
+            var stmt = this.conn.createStatement();
+            String CommandText = "SELECT max(allat_id) FROM allatok";
+        	ResultSet rs = stmt.executeQuery(CommandText); 
+        	if (rs.next()) {
+                allat_id = rs.getInt(1);        		
+        	}
+        	
+            System.out.println("allat_id:"+allat_id);
+            CommandText =" INSERT INTO allatok VALUES (?,?,?,?,?,?)";
+            var pstmt = this.conn.prepareStatement(CommandText);
+            pstmt.setInt(1, allat_id+1); 
+            pstmt.setString(2,nev);
+            pstmt.setString(3,elohely);
+            pstmt.setInt(4,elettartam);
+            pstmt.setInt(5,egyedszam);
+            pstmt.setInt(6,elhelyezes_id);
+            
+            pstmt.execute();
+            
+            String allatok = "allat_id: " + allat_id + " nev: " + nev + " elohely: " + elohely + " elettartam: " 
+            					+ elettartam + " egyedszam: " + egyedszam + " elhelyezes_id: " + elhelyezes_id + "\n";
+            kiiras(allatok, "allatok_kiiras.txt");
+        } 
+        catch(Exception ex) { ex.printStackTrace(); }
+
+    }
+		
+	//Uj rekord felvitele ide: gondozok tabla
+	public void add_new_gondozok(String nev)
+    {
+        int gondozo_id = 0;
+        try
+        {
+            var stmt = this.conn.createStatement();
+            String CommandText = "SELECT max(gondozo_id) FROM gondozok";
+        	ResultSet rs = stmt.executeQuery(CommandText); 
+        	if (rs.next()) {
+                gondozo_id = rs.getInt(1);        		
+        	}
+        	
+            System.out.println("gondozo_id:"+gondozo_id+1);
+            CommandText =" INSERT INTO gondozok VALUES (?,?)";
+            var pstmt = this.conn.prepareStatement(CommandText);
+            pstmt.setInt(1, gondozo_id+1); 
+            pstmt.setString(2,nev);
+                            
+            pstmt.execute();
+            
+            String gondozok = "gondozo_id: " + gondozo_id + " nev: " + nev + "\n";
+            kiiras(gondozok, "gondozok_kiiras.txt");
+        } 
+        catch(Exception ex) { ex.printStackTrace(); }  
+    }
+	
+	//Kiiras txt fajlba
+	private void kiiras(String dataname, String filename) {
+		
+		try (var writer = new FileWriter(filename, true)) {
+            writer.write(dataname);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+		 		      
+	}
+	public void KI(String s) {
+		System.out.println(s+"\n");
+	}
+	
+	//Irja ki azon allatok adatait amelyek eletkora nagyobb, mint x
+	public void lekerdezes_elettartam (int szam) {
+		
+		try {
+			String parancs = "SELECT * FROM allatok WHERE elettartam > ?";
+			PreparedStatement pstmt = conn.prepareStatement(parancs);
+			pstmt.setInt(1, szam);
+			ResultSet rs = pstmt.executeQuery();
+			ResultSetMetaData rsmd = rs.getMetaData();
+			
+			for(int i=1; i <= rsmd.getColumnCount(); i++) {
+				String oszlopNev = rsmd.getColumnName(i);
+				String oszlopTipus = rsmd.getColumnTypeName(i);
+				System.out.println("Oszlop " + i + ": " + oszlopNev + " (" + oszlopTipus + ")");
+			}
+			while (rs.next()) {
+				int allat_id = rs.getInt("allat_id");
+				String nev = rs.getString("nev");
+				String elohely = rs.getString("elohely");
+				int elettartam = rs.getInt("elettartam");
+				int egyedszam = rs.getInt("egyedszam");
+				int elhelyezes_id = rs.getInt("elhelyezes_id");
+				System.out.println(allat_id + " " + nev + " " + elohely + " " + elettartam + " " + egyedszam + " " + elhelyezes_id);
+			}
+			rs.close();
+			pstmt.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	//Azon allatok neve, elohelye, egyedszamanak kiirasa akik kulteren vannak
+	public void lekerdezes_elohely() {
+		
+		try {
+			String query = "SELECT nev, elohely, egyedszam FROM allatok WHERE elhelyezes_id = 2";
+			Statement stmt = conn.createStatement();
+			ResultSet rs = stmt.executeQuery(query);
+			
+			while (rs.next()) {
+                String nev = rs.getString("nev");
+                String elohely = rs.getString("elohely");
+                int egyedszam = rs.getInt("egyedszam");
+                System.out.println("Nev: " + nev + ", Elohely: " + elohely + ", Egyedszam: " + egyedszam);
+            }
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+        }
+	}
+	
+	//Lekerdezzuk hogy melyik allatot ki gondozza
+	public void lekerdezes_kapcsolat() {
+		try {
+			Statement stmt = conn.createStatement();
+			String sql = "SELECT a.nev AS allat, g.nev AS gondozo " +
+		             "FROM allatok a JOIN allat_gondozo_kapcsolat ag ON a.allat_id = ag.allat_id " +
+		             "JOIN gondozok g ON ag.gondozo_id = g.gondozo_id";
+			
+			ResultSet rs = stmt.executeQuery(sql);
+			
+			while (rs.next()) {
+		        String allat = rs.getString("allat");
+		        String gondozo = rs.getString("gondozo");
+		        
+		        
+		        System.out.println(allat + " - " + gondozo);
+		    }   
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+}
